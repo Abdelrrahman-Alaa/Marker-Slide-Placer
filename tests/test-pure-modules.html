@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Marker Slide Placer - Pure Modules Test Runner</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+        background: #1e1e1e;
+        color: #e0e0e0;
+        padding: 24px;
+      }
+      h1 { font-size: 18px; color: #fff; margin-bottom: 16px; }
+      .test-case { padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; font-size: 13px; }
+      .pass { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
+      .fail { background: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); }
+      .summary { margin-top: 20px; font-weight: bold; font-size: 14px; }
+    </style>
+    <script src="../jsx/utils/json.jsx"></script>
+    <script src="../jsx/utils/fs.jsx"></script>
+    <script src="../jsx/parsers/xmpParser.jsx"></script>
+    <script src="../jsx/engine/guardrails.jsx"></script>
+  </head>
+  <body>
+    <h1>🧪 Test Results: Pure ExtendScript Modules</h1>
+    <div id="results"></div>
+    <div id="summary" class="summary"></div>
+
+    <script>
+      var resultsDiv = document.getElementById("results");
+      var summaryDiv = document.getElementById("summary");
+      var passed = 0;
+      var failed = 0;
+
+      function assert(desc, condition) {
+        var el = document.createElement("div");
+        el.className = "test-case " + (condition ? "pass" : "fail");
+        el.textContent = (condition ? "✅ PASS: " : "❌ FAIL: ") + desc;
+        resultsDiv.appendChild(el);
+        if (condition) passed++; else failed++;
+      }
+
+      // Test 1: MSP.JSON
+      var sampleObj = { ok: true, count: 42, title: 'Hello "World"\nNew line', items: [1, "two", { nested: true }] };
+      var jsonStr = MSP.JSON.toJson(sampleObj);
+      var parsed = JSON.parse(jsonStr);
+      assert("MSP.JSON serializes primitives, strings with escapes, and nested arrays", parsed.ok === true && parsed.count === 42 && parsed.items[2].nested === true);
+
+      // Test 2: MSP.JSON.err
+      var errStr = MSP.JSON.err("Test error message");
+      var parsedErr = JSON.parse(errStr);
+      assert("MSP.JSON.err produces standardized error object", parsedErr.ok === false && parsedErr.error === "Test error message");
+
+      // Test 3: MSP.FS.naturalCompare
+      var files = ["Slide10.png", "Slide2.png", "Slide1.png", "Slide20.png", "Slide3.png"];
+      files.sort(MSP.FS.naturalCompare);
+      assert("MSP.FS.naturalCompare sorts numeric filenames naturally", files[0] === "Slide1.png" && files[1] === "Slide2.png" && files[2] === "Slide3.png" && files[3] === "Slide10.png" && files[4] === "Slide20.png");
+
+      // Test 4: MSP.FS.normalizePath
+      var norm = MSP.FS.normalizePath("C:\\Users\\Editor\\Desktop/Project");
+      assert("MSP.FS.normalizePath normalizes backslashes and case", norm === "c:/users/editor/desktop/project");
+
+      // Test 5: MSP.XMP.parseTime
+      var tSample = MSP.XMP.parseTime("s48000f48000", 48000);
+      assert("MSP.XMP.parseTime parses sample-rate divided format", Math.abs(tSample - 1.0) < 0.001);
+
+      var tTimecode = MSP.XMP.parseTime("00:01:30:15", 48000);
+      assert("MSP.XMP.parseTime parses timecode format (00:01:30:15 = 90.5s)", Math.abs(tTimecode - 90.5) < 0.01);
+
+      // Test 6: MSP.XMP.parseMarkers from raw XML string
+      var sampleXmp = '<x:xmpmeta><rdf:RDF><rdf:Description audioSampleRate="48000">' +
+        '<xmpDM:markers><rdf:Seq>' +
+        '<rdf:li name="Intro" startTime="s0f48000" />' +
+        '<rdf:li name="Slide2" startTime="s96000f48000" />' +
+        '<rdf:li><xmpDM:name>Slide3</xmpDM:name><xmpDM:startTime>s144000f48000</xmpDM:startTime></rdf:li>' +
+        '</rdf:Seq></xmpDM:markers></rdf:Description></rdf:RDF></x:xmpmeta>';
+      var parsedMarkers = MSP.XMP.parseMarkers(sampleXmp);
+      assert("MSP.XMP.parseMarkers extracts cue points from both attribute and tag XML syntax", parsedMarkers.length === 3 && parsedMarkers[0].name === "Intro" && Math.abs(parsedMarkers[1].start - 2.0) < 0.01 && Math.abs(parsedMarkers[2].start - 3.0) < 0.01);
+
+      // Test 7: MSP.Guardrails.calculateSegments (Standard Mode N-1)
+      var segStandard = MSP.Guardrails.calculateSegments(parsedMarkers, "standard", 10.0);
+      assert("MSP.Guardrails.calculateSegments produces N-1 segments in standard mode", segStandard.ok === true && segStandard.segments.length === 2 && segStandard.segments[0].start === 0 && Math.abs(segStandard.segments[0].end - 2.0) < 0.01);
+
+      // Test 8: MSP.Guardrails.calculateSegments (Extend-to-End Mode N)
+      var segExtend = MSP.Guardrails.calculateSegments(parsedMarkers, "extend", 5.0);
+      assert("MSP.Guardrails.calculateSegments produces N segments ending at audioEnd in extend mode", segExtend.ok === true && segExtend.segments.length === 3 && Math.abs(segExtend.segments[2].end - 5.0) < 0.01);
+
+      // Test 9: MSP.Guardrails.validateSlideCount
+      var validCount = MSP.Guardrails.validateSlideCount(2, 2, "standard", 3);
+      assert("MSP.Guardrails.validateSlideCount approves exact count match", validCount.ok === true);
+
+      var invalidCount = MSP.Guardrails.validateSlideCount(5, 2, "standard", 3);
+      assert("MSP.Guardrails.validateSlideCount blocks mismatch with descriptive error", invalidCount.ok === false && invalidCount.error.indexOf("Slide Count Mismatch") > -1);
+
+      summaryDiv.textContent = "Total: " + (passed + failed) + " | Passed: " + passed + " | Failed: " + failed;
+      summaryDiv.style.color = failed === 0 ? "#2ecc71" : "#e74c3c";
+    </script>
+  </body>
+</html>
