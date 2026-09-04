@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review for MarkerSlidePlacer_Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak { stroke: #dc2626; }
+      .deep-card { background: linear-gradient(135deg, #0f172a, #1e293b); }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans antialiased selection:bg-slate-200">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+      <!-- Header -->
+      <header class="border-b border-slate-200 pb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="text-xs uppercase tracking-wider font-semibold text-slate-500">Architecture Review</div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">MarkerSlidePlacer_Panel</h1>
+          </div>
+          <div class="text-sm text-slate-500 font-mono">2026-09-02</div>
+        </div>
+
+        <!-- Legend -->
+        <div class="mt-6 flex flex-wrap items-center gap-6 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-3.5 h-3.5 border border-slate-700 bg-slate-100 rounded-sm"></span>
+            <span>Module</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-4 h-0 border-t-2 border-dashed border-slate-500"></span>
+            <span>Seam</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-4 h-0.5 bg-red-600"></span>
+            <span>Leakage</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-3.5 h-3.5 bg-slate-900 rounded-sm"></span>
+            <span>Deep Module</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Candidates -->
+      <section id="candidates" class="space-y-12">
+        <!-- Candidate 1 -->
+        <article id="candidate-1" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-bold tracking-tight text-slate-900">1. Deepen the Slide Placement Engine</h2>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Strong</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700">in-process</span>
+            </div>
+          </div>
+
+          <div class="text-xs font-mono text-slate-500 bg-slate-50 px-3 py-1.5 rounded border border-slate-100">
+            hostscript.jsx &rarr; jsx/engine/slidePlacer.jsx, jsx/engine/guardrails.jsx
+          </div>
+
+          <!-- Before / After Visual -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Before: Shallow & Leaking</div>
+              <pre class="mermaid">
+                flowchart TD
+                  Caller([UI / Entrypoint])
+                  subgraph Shallow ["hostscript.jsx (Sprawl)"]
+                    FD[Folder Selector]
+                    FS[Natural Sorter]
+                    SG[Strict Count Check]
+                    BM[Bin Creator]
+                    OC[overwriteClip]
+                    TL[Track Item Locator]
+                    TR[Multi-Pass Trimming]
+                  end
+                  Caller --> FD
+                  Caller -.leak.-> BM
+                  Caller -.leak.-> SG
+                  Caller --> OC
+                  Caller -.leak.-> TL
+                  Caller -.leak.-> TR
+                  classDef leak stroke:#dc2626,stroke-width:2px;
+                  class BM,SG,TL,TR leak;
+              </pre>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">After: Deep Module Behind Seam</div>
+              <pre class="mermaid">
+                flowchart TD
+                  Caller([UI / Entrypoint])
+                  subgraph DeepModule ["Slide Placement Engine (Deep Module)"]
+                    direction TB
+                    subgraph Internal ["Internal Implementation"]
+                      SG2[Strict Count Guardrail]
+                      BM2[Bin Isolation]
+                      OC2[Clip Overwrite]
+                      FS2[Frame Scaler]
+                      TR2[Multi-Pass Trimming]
+                    end
+                  end
+                  Caller ==>|Small Interface: placeTrack| DeepModule
+                  SG2 --> BM2 --> OC2 --> FS2 --> TR2
+                  classDef deepBox fill:#0f172a,stroke:#334155,color:#f8fafc;
+                  class DeepModule deepBox;
+              </pre>
+            </div>
+          </div>
+
+          <div class="space-y-3 text-sm">
+            <div>
+              <span class="font-semibold text-slate-700">Problem:</span>
+              <span class="text-slate-600"> The placement logic leaks across folder discovery, bin management, clip track lookup, overwrite placement, frame scaling, and trim retries in one 400-line function.</span>
+            </div>
+            <div>
+              <span class="font-semibold text-slate-700">Solution:</span>
+              <span class="text-slate-600"> Collapse placement mechanics into a deep module exposing a single placement operation at an internal seam.</span>
+            </div>
+            <div class="pt-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Wins</div>
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Locality: placement errors stay in module</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Leverage: callers pass 4 parameters</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Strict count guardrail stays internal</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Multi-pass trimming mechanics stay internal</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 2 -->
+        <article id="candidate-2" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-bold tracking-tight text-slate-900">2. Deepen the Audio Marker Extractor</h2>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Strong</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700">in-process</span>
+            </div>
+          </div>
+
+          <div class="text-xs font-mono text-slate-500 bg-slate-50 px-3 py-1.5 rounded border border-slate-100">
+            hostscript.jsx &rarr; jsx/parsers/xmpParser.jsx, jsx/timeline/markerScanner.jsx
+          </div>
+
+          <!-- Before / After Visual -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Before: Scattered Extraction & Arbitration</div>
+              <pre class="mermaid">
+                flowchart TD
+                  Caller([UI / Scan Trigger])
+                  subgraph Scattered ["Loose Functions in hostscript.jsx"]
+                    XP[XMP Regex Parser]
+                    PI[ProjectItem getMarkers]
+                    TI[TrackItem Scanner]
+                    SQ[Sequence Marker Collector]
+                    OF[Offset Calculator]
+                    AR[Source Arbitrator]
+                  end
+                  Caller --> AR
+                  AR -.leak.-> XP
+                  AR -.leak.-> PI
+                  AR -.leak.-> TI
+                  AR -.leak.-> OF
+                  classDef leak stroke:#dc2626,stroke-width:2px;
+                  class XP,PI,TI,OF leak;
+              </pre>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">After: Consolidated Marker Extractor</div>
+              <pre class="mermaid">
+                flowchart TD
+                  Caller([UI / Scan Trigger])
+                  subgraph DeepExtractor ["Audio Marker Extractor (Deep Module)"]
+                    direction TB
+                    subgraph Internal2 ["Hidden Mechanics"]
+                      XMP[XMP Regex Parser]
+                      CLK[Clock / Offset Sync]
+                      ARB[Arbitrator & Fallback]
+                      SEG[Dual-Mode Segment Calc]
+                    end
+                  end
+                  Caller ==>|Small Interface: getMarkersInfo| DeepExtractor
+                  XMP --> CLK --> ARB --> SEG
+                  classDef deepBox fill:#0f172a,stroke:#334155,color:#f8fafc;
+                  class DeepExtractor deepBox;
+              </pre>
+            </div>
+          </div>
+
+          <div class="space-y-3 text-sm">
+            <div>
+              <span class="font-semibold text-slate-700">Problem:</span>
+              <span class="text-slate-600"> The marker retrieval module leaks raw XMP parsing, audio rate scaling, and fallback heuristics to the caller.</span>
+            </div>
+            <div>
+              <span class="font-semibold text-slate-700">Solution:</span>
+              <span class="text-slate-600"> Consolidate marker discovery and parsing into a deep module that resolves timeline cue points through one interface.</span>
+            </div>
+            <div class="pt-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Wins</div>
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Locality: timestamp normalization stays in module</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Leverage: callers receive clean marker array</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>XMP regex parsing stays private</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Source arbitration hidden from callers</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 3 -->
+        <article id="candidate-3" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-bold tracking-tight text-slate-900">3. Establish the CEP Host Adapter Seam</h2>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Worth exploring</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700">ports & adapters</span>
+            </div>
+          </div>
+
+          <div class="text-xs font-mono text-slate-500 bg-slate-50 px-3 py-1.5 rounded border border-slate-100">
+            index.html &rarr; index.html, css/panel.css, js/ui.js, js/premiere-adapter.js
+          </div>
+
+          <!-- Before / After Visual -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Before: UI & CEP Intertwined</div>
+              <pre class="mermaid">
+                flowchart TD
+                  subgraph Monolith ["index.html (Single File)"]
+                    CSS[Embedded Styles]
+                    DOM[HTML Structure]
+                    EV[Event Listeners]
+                    STR[evalScript String Concatenation]
+                    TO[Timeout & Bridge Error Logic]
+                  end
+                  DOM --- CSS
+                  EV --> STR
+                  STR -.leak.-> TO
+                  classDef leak stroke:#dc2626,stroke-width:2px;
+                  class STR,TO leak;
+              </pre>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">After: Clean Seam & Two Adapters</div>
+              <pre class="mermaid">
+                flowchart TD
+                  UI[UI Module: DOM & Events]
+                  UI ==>|Host Interface Seam| AdapterChoice
+                  subgraph Adapters ["Two Adapters Satisfy Seam"]
+                    A1[Premiere CEP Adapter: evalScript]
+                    A2[Browser Mock Adapter: In-Memory]
+                  end
+                  AdapterChoice -.prod.-> A1
+                  AdapterChoice -.dev / test.-> A2
+                  classDef deepBox fill:#0f172a,stroke:#334155,color:#f8fafc;
+                  class UI deepBox;
+              </pre>
+            </div>
+          </div>
+
+          <div class="space-y-3 text-sm">
+            <div>
+              <span class="font-semibold text-slate-700">Problem:</span>
+              <span class="text-slate-600"> The UI module leaks CEP evalScript string interpolation, timeout timers, and JSON parsing directly into DOM event handlers.</span>
+            </div>
+            <div>
+              <span class="font-semibold text-slate-700">Solution:</span>
+              <span class="text-slate-600"> Place an adapter module at the CEP seam, separating host communication from DOM presentation.</span>
+            </div>
+            <div class="pt-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Wins</div>
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Locality: DOM updates stay in UI</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Seam: evalScript strings isolated in adapter</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Leverage: UI testable with browser adapter</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Two adapters satisfy host seam</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 4 -->
+        <article id="candidate-4" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-bold tracking-tight text-slate-900">4. Encapsulate ES3 Serialization & File System Utilities</h2>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Worth exploring</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-100 text-slate-700">local-substitutable</span>
+            </div>
+          </div>
+
+          <div class="text-xs font-mono text-slate-500 bg-slate-50 px-3 py-1.5 rounded border border-slate-100">
+            hostscript.jsx &rarr; jsx/utils/json.jsx, jsx/utils/fs.jsx
+          </div>
+
+          <!-- Before / After Visual -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Before: Global Scope Pollution</div>
+              <pre class="mermaid">
+                flowchart TD
+                  subgraph GlobalSpace ["ExtendScript Global Namespace"]
+                    J1[__msp_jsonEscape]
+                    J2[__msp_toJson]
+                    J3[__msp_err]
+                    F1[__msp_normPath]
+                    F2[__msp_naturalCompare]
+                    F3[__msp_collectImageFiles]
+                    DM[Domain Placement Code]
+                  end
+                  DM -.leak.-> J1
+                  DM -.leak.-> F2
+                  classDef leak stroke:#dc2626,stroke-width:2px;
+                  class J1,F2 leak;
+              </pre>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">After: Composed via Preprocessor Seams</div>
+              <pre class="mermaid">
+                flowchart TD
+                  subgraph CompositionRoot ["hostscript.jsx (Root Entrypoint)"]
+                    direction TB
+                    U1["#include jsx/utils/json.jsx"]
+                    U2["#include jsx/utils/fs.jsx"]
+                    U3["#include jsx/parsers/xmpParser.jsx"]
+                    U4["#include jsx/engine/slidePlacer.jsx"]
+                  end
+                  U1 --> NamespacedUtils["MSP.JSON / MSP.FS"]
+                  U2 --> NamespacedUtils
+                  classDef deepBox fill:#0f172a,stroke:#334155,color:#f8fafc;
+                  class CompositionRoot deepBox;
+              </pre>
+            </div>
+          </div>
+
+          <div class="space-y-3 text-sm">
+            <div>
+              <span class="font-semibold text-slate-700">Problem:</span>
+              <span class="text-slate-600"> Low-level ES3 JSON escaping and recursive file system traversal pollute the global ExtendScript namespace alongside domain logic.</span>
+            </div>
+            <div>
+              <span class="font-semibold text-slate-700">Solution:</span>
+              <span class="text-slate-600"> Extract pure ES3 serializer and filesystem utilities into isolated modules composed via preprocessor include seams.</span>
+            </div>
+            <div class="pt-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Wins</div>
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Locality: ES3 polyfills isolated from engine</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Seam: preprocessor includes compose root script</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Leverage: utilities reusable across future scripts</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Zero global namespace pollution</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Top Recommendation -->
+      <section id="top-recommendation" class="bg-slate-900 text-white rounded-xl p-8 border border-slate-800 shadow-md">
+        <div class="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-2">Top Recommendation</div>
+        <h3 class="text-xl font-bold text-white mb-2">
+          <a href="#candidate-1" class="hover:underline text-emerald-400">1. Deepen the Slide Placement Engine</a> & <a href="#candidate-2" class="hover:underline text-emerald-400">2. Deepen the Audio Marker Extractor</a>
+        </h3>
+        <p class="text-sm text-slate-300 leading-relaxed max-w-3xl">
+          The ExtendScript engine (hostscript.jsx) holds 100% of the timeline risk, marker arithmetic, and Premiere Pro API fragility; collapsing it into deep modules behind small interfaces delivers the highest leverage and immediately unblocks independent testing and maintenance.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
