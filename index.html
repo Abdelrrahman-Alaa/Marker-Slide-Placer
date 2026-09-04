@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marker Slide Placer</title>
+    <link rel="stylesheet" href="css/panel.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <h1>Marker Slide Placer</h1>
+      <span id="connPill" class="conn-pill conn-checking">● Checking...</span>
+    </div>
+
+    <!-- Live Metadata / Summary Card -->
+    <div class="summary-card">
+      <div class="summary-title">Active Timeline Overview</div>
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <div class="metric-label">Active Sequence</div>
+          <div id="cardSeq" class="metric-value">None</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Detected Markers</div>
+          <div id="cardMarkers" class="metric-value">-</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Required Slides</div>
+          <div id="cardRequired" class="metric-value highlight">-</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Audio Source</div>
+          <div id="cardSource" class="metric-value">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert / Status Banner -->
+    <div id="alertBox" class="alert"></div>
+
+    <!-- Controls -->
+    <div class="form-group">
+      <label class="form-label" for="markerSource">Marker Source</label>
+      <select id="markerSource">
+        <option value="auto" selected>Auto (Detect Audio Clip or Timeline)</option>
+        <option value="clip">Audio Clip Markers (from Audition / Audio Track)</option>
+        <option value="sequence">Timeline Markers (Sequence Ruler)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="placementMode">Placement Mode</label>
+        <select id="placementMode">
+          <option value="standard" selected>Standard (N-1 Slides)</option>
+          <option value="extend">Extend to End (N Slides)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="track">Target Track</label>
+        <select id="track">
+          <option value="1">V1</option>
+          <option value="2">V2</option>
+          <option value="3">V3</option>
+          <option value="4">V4</option>
+          <option value="5">V5</option>
+          <option value="6">V6</option>
+          <option value="7">V7</option>
+          <option value="8">V8</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Frame Scaling Checkbox -->
+    <label class="checkbox-container">
+      <input type="checkbox" id="scaleToFrame" checked />
+      <span>Auto-scale slides to sequence frame size</span>
+    </label>
+
+    <!-- Primary & Secondary Actions -->
+    <button id="place" class="btn-primary">🚀 PLACE SLIDES</button>
+    <button id="markers" class="btn-secondary">🔍 Scan Sequence Markers</button>
+    <button id="copyMarkers" class="btn-ghost">⏱️ Copy Clip Markers to Sequence Ruler</button>
+
+    <!-- Collapsible Troubleshooting Drawer -->
+    <details class="troubleshoot">
+      <summary>Advanced Diagnostics</summary>
+      <div class="troubleshoot-body">
+        <button id="debug" class="btn-debug">🔍 Inspect Audio Clips & Markers Info</button>
+      </div>
+    </details>
+
+    <div class="supported-info">
+      Supported Formats: PNG, JPG, JPEG, WEBP, BMP, TIFF
+    </div>
+
+    <!-- Clean Scripts (Host Adapter Seam & Presentation Controller) -->
+    <script src="js/premiere-adapter.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
