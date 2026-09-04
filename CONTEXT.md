@@ -44,3 +44,9 @@ A streamlined interface architecture featuring:
 ### Auto Frame Scaling
 An optional per-placement setting that applies `setScaleToFrameSize()` on placed slide clips to match the sequence dimensions automatically.
 
+### Slide Source Selection
+The decoupled CEP dialog mechanism (`window.cep.fs.showOpenDialogEx`) that prompts the user to select the slides directory natively from the panel layer without blocking the ExtendScript runtime or tying up host execution.
+
+### Host Request Timeout Guardrail
+A configurable asynchronous timeout guardrail protecting the CEP panel from indefinite hanging on unresolved ExtendScript calls. Heavy timeline placements use an extended 120-second threshold, completely decoupled from user dialog interaction time.
+

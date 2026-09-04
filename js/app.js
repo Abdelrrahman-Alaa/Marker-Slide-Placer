@@ -141,11 +141,23 @@
     showAlert("Please select your exported PowerPoint slides folder...", "info");
 
     try {
+      var folderPath = await PremiereAdapter.selectFolder(
+        "Choose the folder containing your exported PowerPoint slides"
+      );
+
+      if (!folderPath) {
+        showAlert("Folder selection cancelled.", "info");
+        return;
+      }
+
+      showAlert("Placing slides on timeline...", "info");
+
       var data = await PremiereAdapter.placeSlides({
         track: track,
         sourceMode: src,
         placementMode: mode,
         scaleToFrame: scale,
+        folderPath: folderPath,
       });
 
       var summaryMsg =

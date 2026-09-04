@@ -6,7 +6,7 @@
 (function (global) {
   "use strict";
 
-  var TIMEOUT_MS = 20000;
+  var DEFAULT_TIMEOUT_MS = 20000;
 
   function isAvailable() {
     return !!(
@@ -15,7 +15,9 @@
     );
   }
 
-  function callHost(script) {
+  function callHost(script, timeoutMs) {
+    var timeout = typeof timeoutMs === "number" ? timeoutMs : DEFAULT_TIMEOUT_MS;
+
     return new Promise(function (resolve, reject) {
       if (!isAvailable()) {
         return reject(
@@ -24,18 +26,22 @@
       }
 
       var done = false;
-      var timer = setTimeout(function () {
-        if (!done) {
-          done = true;
-          reject(new Error("Host request timed out after " + (TIMEOUT_MS / 1000) + "s."));
-        }
-      }, TIMEOUT_MS);
+      var timer = null;
+
+      if (timeout > 0) {
+        timer = setTimeout(function () {
+          if (!done) {
+            done = true;
+            reject(new Error("Host request timed out after " + (timeout / 1000) + "s."));
+          }
+        }, timeout);
+      }
 
       try {
         global.__adobe_cep__.evalScript(script, function (rawResponse) {
           if (done) return;
           done = true;
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
 
           if (rawResponse === "EvalScript error." || rawResponse === undefined) {
             return reject(new Error("ExtendScript evaluation failed."));
@@ -56,7 +62,7 @@
       } catch (err) {
         if (!done) {
           done = true;
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           reject(err);
         }
       }
@@ -65,6 +71,32 @@
 
   var PremiereAdapter = {
     isAvailable: isAvailable,
+
+    selectFolder: function (title, initialPath) {
+      return new Promise(function (resolve, reject) {
+        try {
+          var cepFs = (global.cep && global.cep.fs) || (global.window && global.window.cep && global.window.cep.fs);
+          if (cepFs && typeof cepFs.showOpenDialogEx === "function") {
+            var result = cepFs.showOpenDialogEx(
+              false, // allowMultipleSelection
+              true,  // chooseDirectory
+              title || "Choose the folder containing your exported PowerPoint slides",
+              initialPath || "",
+              []
+            );
+            if (result && result.err === 0 && result.data && result.data.length > 0) {
+              resolve(result.data[0]);
+            } else {
+              resolve(null);
+            }
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          reject(e);
+        }
+      });
+    },
 
     testConnection: function () {
       return callHost("mspTestConnection()");
@@ -82,9 +114,23 @@
       var src = options.sourceMode || "auto";
       var mode = options.placementMode || "standard";
       var scale = options.scaleToFrame !== false;
-      return callHost(
-        "mspPlaceSlides(" + track + ", '" + src + "', '" + mode + "', " + scale + ")"
-      );
+      var folderPath = options.folderPath || "";
+      var timeout = typeof options.timeoutMs === "number" ? options.timeoutMs : 120000;
+
+      var script =
+        "mspPlaceSlides(" +
+        track +
+        ", '" +
+        src +
+        "', '" +
+        mode +
+        "', " +
+        scale +
+        ", " +
+        JSON.stringify(folderPath) +
+        ")";
+
+      return callHost(script, timeout);
     },
 
     copyMarkersToTimeline: function () {

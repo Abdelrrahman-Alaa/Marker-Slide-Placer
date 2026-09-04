@@ -71,8 +71,8 @@ function mspGetMarkersInfo(sourceMode, placementMode) {
   }
 }
 
-function mspPlaceSlides(trackNumber, sourceMode, placementMode, scaleToFrame) {
-  return MSP.Engine.placeSlides(trackNumber, sourceMode, placementMode, scaleToFrame);
+function mspPlaceSlides(trackNumber, sourceMode, placementMode, scaleToFrame, folderPath) {
+  return MSP.Engine.placeSlides(trackNumber, sourceMode, placementMode, scaleToFrame, folderPath);
 }
 
 function mspCopyClipMarkersToTimeline() {

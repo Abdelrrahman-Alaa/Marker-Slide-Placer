@@ -106,7 +106,7 @@ var MSP = MSP || {};
     return trimmed;
   }
 
-  function placeSlides(trackNumber, sourceMode, placementMode, scaleToFrame) {
+  function placeSlides(trackNumber, sourceMode, placementMode, scaleToFrame, folderPath) {
     if (!placementMode) placementMode = "standard";
     var doScale =
       scaleToFrame === undefined ||
@@ -151,9 +151,19 @@ var MSP = MSP || {};
       }
       var segments = segRes.segments;
 
-      var folder = Folder.selectDialog(
-        "Choose the folder containing your exported PowerPoint slides"
-      );
+      var folder;
+      if (folderPath && typeof folderPath === "string" && folderPath.length > 0) {
+        folder = new Folder(folderPath);
+        if (!folder.exists) {
+          return (MSP.JSON ? MSP.JSON.err : __msp_err)(
+            "Selected folder does not exist: " + folderPath
+          );
+        }
+      } else {
+        folder = Folder.selectDialog(
+          "Choose the folder containing your exported PowerPoint slides"
+        );
+      }
       if (!folder) return (MSP.JSON ? MSP.JSON.err : __msp_err)("Folder selection cancelled.");
 
       var files = MSP.FS ? MSP.FS.collectImageFiles(folder) : __msp_collectImageFiles(folder);
