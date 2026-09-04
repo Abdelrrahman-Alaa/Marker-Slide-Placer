@@ -50,19 +50,19 @@ It supports embedded XMP markers exported directly from Adobe Audition (Clip Mar
 ## 🚀 Installation
 
 ### 1. Copy the Extension Folder
-Place the `MarkerSlidePlacer_Panel_v1_fixed4` folder into your system CEP extensions directory:
+Place the `Marker-Slide-Placer` folder into your system CEP extensions directory:
 
 - **Windows**:
   ```text
-  C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\MarkerSlidePlacer_Panel
+  C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\Marker-Slide-Placer
   ```
-  *(Or per-user: `%APPDATA%\Adobe\CEP\extensions\MarkerSlidePlacer_Panel`)*
+  *(Or per-user: `%APPDATA%\Adobe\CEP\extensions\Marker-Slide-Placer`)*
 
 - **macOS**:
   ```text
-  /Library/Application Support/Adobe/CEP/extensions/MarkerSlidePlacer_Panel
+  /Library/Application Support/Adobe/CEP/extensions/Marker-Slide-Placer
   ```
-  *(Or per-user: `~/Library/Application Support/Adobe/CEP/extensions/MarkerSlidePlacer_Panel`)*
+  *(Or per-user: `~/Library/Application Support/Adobe/CEP/extensions/Marker-Slide-Placer`)*
 
 ### 2. Enable Debug Mode (`PlayerDebugMode`)
 To allow unsigned CEP extensions to run:
@@ -108,7 +108,7 @@ To allow unsigned CEP extensions to run:
 The project follows a decoupled, clean modular architecture:
 
 ```text
-MarkerSlidePlacer_Panel/
+Marker-Slide-Placer/
 ├── CSXS/
 │   └── manifest.xml             # Extension metadata, CSXS 12.0 runtime, Premiere host config
 ├── css/
